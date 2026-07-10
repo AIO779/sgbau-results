@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SGBAU Result Checker — Multi-Department Bulk Results</title>
+  <meta name="description" content="Fetch SGBAU university results for multiple departments simultaneously. Live progress, instant CSV download." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- ── HEADER ─────────────────────────────────────────────────────────────── -->
+  <header class="site-header">
+    <div class="header-inner">
+      <div class="logo">
+        <span class="logo-icon">🎓</span>
+        <div>
+          <h1>SGBAU Result Checker</h1>
+          <p class="logo-sub">Sant Gadge Baba Amravati University</p>
+        </div>
+      </div>
+      <span class="header-badge">Multi-Department Bulk</span>
+    </div>
+  </header>
+
+  <main>
+
+    <!-- ── SESSION SETTINGS ──────────────────────────────────────────────────── -->
+    <section class="card" id="config-card">
+      <div class="card-header">
+        <span class="card-icon">⚙️</span>
+        <h2>Session Settings</h2>
+      </div>
+      <div class="config-row">
+
+        <!-- Session dropdown (real SGBAU values) -->
+        <div class="field">
+          <label for="session">Session</label>
+          <div class="select-wrap">
+            <select id="session">
+              <option value="SE08">Summer 2018</option>
+              <option value="SE09">Winter 2018</option>
+              <option value="SE10">Summer 2019</option>
+              <option value="SE11">Winter 2019</option>
+              <option value="SE12">Summer 2020</option>
+              <option value="SE13">Winter 2020</option>
+              <option value="SE14">Summer 2021</option>
+              <option value="SE15">Winter 2021</option>
+              <option value="SE16">Summer 2022</option>
+              <option value="SE17">Winter 2022</option>
+              <option value="SE18">Summer 2023</option>
+              <option value="SE19">Winter 2023</option>
+              <option value="SE20">Summer 2024</option>
+              <option value="SE21">Winter 2024</option>
+              <option value="SE22">Summer 2025</option>
+              <option value="SE23" selected>Winter 2025</option>
+              <option value="SE24">Summer 2026</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Semester dropdown (real SGBAU values) -->
+        <div class="field">
+          <label for="sem_code">Semester</label>
+          <div class="select-wrap">
+            <select id="sem_code">
+              <option value="MN01">Quarterly (3rd Month)</option>
+              <option value="SM01">Sem 1 — First Semester</option>
+              <option value="SM02">Sem 2 — Second Semester</option>
+              <option value="SM03" selected>Sem 3 — Third Semester</option>
+              <option value="SM04">Sem 4 — Fourth Semester</option>
+              <option value="SM05">Sem 5 — Fifth Semester</option>
+              <option value="SM06">Sem 6 — Sixth Semester</option>
+              <option value="SM07">Sem 7 — Seventh Semester</option>
+              <option value="SM08">Sem 8 — Eighth Semester</option>
+              <option value="SM09">Sem 9 — Ninth Semester</option>
+              <option value="SM10">Sem 10 — Tenth Semester</option>
+              <option value="SM17">First Year</option>
+              <option value="SM18">Second Year</option>
+              <option value="SM19">Third Year</option>
+              <option value="SM20">Fourth Year</option>
+              <option value="SM21">Fifth Year</option>
+              <option value="SM22">Course Work</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Result type -->
+        <div class="field">
+          <label for="result_type">Result Type</label>
+          <div class="select-wrap">
+            <select id="result_type">
+              <option value="R" selected>Regular</option>
+              <option value="B">Back</option>
+              <option value="RV">Reval</option>
+              <option value="EV">EVS</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Workers -->
+        <div class="field">
+          <label for="workers">Parallel Workers</label>
+          <input id="workers" type="number" value="50" min="1" max="200" />
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ── DEPARTMENTS ───────────────────────────────────────────────────────── -->
+    <section class="card" id="dept-card">
+      <div class="card-header">
+        <span class="card-icon">🏛️</span>
+        <h2>Departments</h2>
+        <span class="card-hint">Select course from dropdown — start &amp; end roll fill automatically</span>
+      </div>
+      <div id="dept-list"></div>
+      <button class="btn-add" id="add-dept-btn" onclick="addDept()">
+        <span>+</span> Add Department
+      </button>
+    </section>
+
+    <!-- ── SUBMIT ─────────────────────────────────────────────────────────────── -->
+    <div class="submit-wrap">
+      <button class="btn-primary" id="fetch-btn" onclick="startFetch()">
+        <span class="btn-icon">🔍</span>
+        <span id="fetch-btn-text">Fetch Results</span>
+      </button>
+    </div>
+
+    <!-- ── PROGRESS ──────────────────────────────────────────────────────────── -->
+    <section class="card hidden" id="progress-card">
+      <div class="card-header">
+        <span class="card-icon">⏳</span>
+        <h2>Progress</h2>
+      </div>
+      <div id="progress-label" class="progress-label">Starting…</div>
+      <div class="progress-track">
+        <div class="progress-fill" id="progress-fill"></div>
+      </div>
+      <div class="progress-stats">
+        <span id="progress-count">0</span> results received
+      </div>
+    </section>
+
+    <!-- ── RESULTS TABLE ─────────────────────────────────────────────────────── -->
+    <section class="card hidden" id="results-card">
+      <div class="card-header results-header">
+        <div class="card-header-left">
+          <span class="card-icon">📋</span>
+          <h2>Results</h2>
+          <span class="results-count-badge" id="results-count-badge">0</span>
+        </div>
+        <button class="btn-download hidden" id="download-btn" onclick="downloadCSV()">
+          <span>⬇</span> Download CSV
+        </button>
+      </div>
+
+      <!-- filter bar -->
+      <div class="filter-bar">
+        <input id="filter-input" type="text" placeholder="🔎  Filter by name or roll number…" oninput="filterTable()" />
+        <div class="filter-pills" id="filter-pills">
+          <button class="pill active" data-filter="all"  onclick="setPillFilter('all',  this)">All</button>
+          <button class="pill pass"   data-filter="pass" onclick="setPillFilter('pass', this)">PASS</button>
+          <button class="pill fail"   data-filter="fail" onclick="setPillFilter('fail', this)">FAIL</button>
+          <button class="pill atkt"   data-filter="atkt" onclick="setPillFilter('atkt', this)">ATKT</button>
+        </div>
+      </div>
+
+      <div id="table-wrap">
+        <table id="results-table">
+          <thead>
+            <tr>
+              <th>Dept</th>
+              <th>Roll No</th>
+              <th>Name</th>
+              <th>Result</th>
+              <th>SGPA</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="results-body"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ── SUMMARY ───────────────────────────────────────────────────────────── -->
+    <section class="card hidden" id="summary-card">
+      <div class="card-header">
+        <span class="card-icon">📊</span>
+        <h2>Department Summary</h2>
+      </div>
+      <div id="summary-body" class="summary-grid"></div>
+    </section>
+
+  </main>
+
+  <footer class="site-footer">
+    <p>SGBAU Result Checker &bull; Data sourced from <a href="https://sgbau.ucanapply.com" target="_blank" rel="noopener">sgbau.ucanapply.com</a></p>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>

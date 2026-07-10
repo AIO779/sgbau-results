@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+
+# Virtual environments
+.env
+.venv/
+venv/
+env/
+
+# Scraped output (CLI script leftovers)
+results_*/
+*.csv
+!docs/*.css
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
