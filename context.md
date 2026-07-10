@@ -35,11 +35,11 @@ C:\Users\Atharav\Desktop\DIC\sgbau-results\
 | 4 | Frontend (`index.html`, `style.css`, `app.js`) | ✅ DONE |
 | 5 | Local Dev & Testing | ✅ DONE |
 | 6 | Config Files (`requirements.txt`, `render.yaml`, `.gitignore`, `README.md`) | ✅ DONE |
-| 7 | GitHub Repo + Push | ⬜ NEXT |
-| 8 | Enable GitHub Pages (frontend) | ⬜ TODO |
-| 9 | Deploy Backend on Render.com | ⬜ TODO |
-| 10 | Wire Production URLs | ⬜ TODO |
-| 11 | End-to-End Testing in Production | ⬜ TODO |
+| 7 | GitHub Repo + Push | ✅ DONE |
+| 8 | Enable GitHub Pages (frontend) | ✅ DONE |
+| 9 | Deploy Backend on Render.com | ✅ DONE |
+| 10 | Wire Production URLs | ✅ DONE |
+| 11 | End-to-End Testing in Production | ⬜ NEXT |
 | 12 | Launch & Share | ⬜ TODO |
 
 ---

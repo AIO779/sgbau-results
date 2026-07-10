@@ -1,5 +1,5 @@
 // ── Config ─────────────────────────────────────────────────────────────────────
-const API_URL = "http://localhost:8000";   // ← change to Render URL in Phase 10
+const API_URL = "https://sgbau-results.onrender.com";   // ← change to Render URL in Phase 10
 
 // ── State ──────────────────────────────────────────────────────────────────────
 let currentJobId  = null;
