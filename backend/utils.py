@@ -131,3 +131,163 @@ def parse_result(html: str, roll: str) -> dict:
             record[canonical] = record.pop(alias)
 
     return record
+
+
+# ── Info fields that are NOT subject grade columns ────────────────────────────
+_INFO_FIELDS = {
+    'Roll No', 'Name', 'Result', 'SGPA', 'Status', 'Roll Number', 'PRN',
+    'College', 'Session', 'Message', 'Error', 'Max Marks', 'Department',
+    'Subject', 'Paper', 'THEORY', 'I.A.', 'I.A.(PRAC)', 'PRACTICAL',
+    'Abbreviation', 'Marks Scored', 'Grade Point', 'Grade', 'Remarks', 'Credits',
+}
+
+
+def get_subject_cols(df) -> list:
+    """
+    Return subject-grade column names from a DataFrame.
+    Subject columns: not in _INFO_FIELDS, no spaces (they are abbreviations like 'AM', 'DS').
+    """
+    import pandas as pd
+    return [c for c in df.columns if c not in _INFO_FIELDS and ' ' not in c]
+
+
+def generate_class_report(df, subj_cols: list, dept_name: str = '') -> dict:
+    """
+    Build a structured class-report dict from a results DataFrame.
+
+    Returns
+    -------
+    {
+        "dept":            str,
+        "total_students":  int,
+        "passed":          int,
+        "failed":          int,
+        "pass_pct":        float,
+        "top5": [
+            {"rank": int, "name": str, "roll": str, "sgpa": float},
+            ...
+        ],
+        "subject_stats": [
+            {
+                "subject":  str,
+                "total":    int,
+                "passed":   int,
+                "failed":   int,
+                "pass_pct": float,
+                "fail_pct": float,
+            },
+            ...
+        ],
+    }
+    """
+    import pandas as pd
+
+    valid = df[df['Status'] == 'OK'].copy() if 'Status' in df.columns else df.copy()
+    total = len(valid)
+
+    report: dict = {
+        'dept':           dept_name,
+        'total_students': total,
+        'passed':         0,
+        'failed':         total,
+        'pass_pct':       0.0,
+        'top5':           [],
+        'subject_stats':  [],
+    }
+
+    if total == 0:
+        return report
+
+    # ── Overall pass / fail ───────────────────────────────────────────────────
+    if 'Result' in valid.columns:
+        passed_mask     = valid['Result'].str.upper() == 'PASS'
+        passed          = int(passed_mask.sum())
+        report['passed']   = passed
+        report['failed']   = total - passed
+        report['pass_pct'] = round((passed / total) * 100, 1)
+
+    # ── Top-5 by SGPA ─────────────────────────────────────────────────────────
+    if 'SGPA' in valid.columns:
+        sgpa_df = valid.copy()
+        sgpa_df['_sgpa_num'] = pd.to_numeric(sgpa_df['SGPA'], errors='coerce')
+        top5 = sgpa_df.dropna(subset=['_sgpa_num']).nlargest(5, '_sgpa_num')
+        for rank, (_, row) in enumerate(top5.iterrows(), 1):
+            report['top5'].append({
+                'rank': rank,
+                'name': row.get('Name', 'Unknown'),
+                'roll': row.get('Roll No', ''),
+                'sgpa': float(row['_sgpa_num']),
+            })
+
+    # ── Subject-wise pass / fail ──────────────────────────────────────────────
+    stats = []
+    for col in subj_cols:
+        if col not in valid.columns:
+            continue
+        col_data = valid[col].dropna()
+        tot = len(col_data)
+        if tot == 0:
+            continue
+        failed_cnt  = int((col_data.str.upper() == 'F').sum())
+        passed_cnt  = tot - failed_cnt
+        stats.append({
+            'subject':  col,
+            'total':    tot,
+            'passed':   passed_cnt,
+            'failed':   failed_cnt,
+            'pass_pct': round((passed_cnt / tot) * 100, 1),
+            'fail_pct': round((failed_cnt / tot) * 100, 1),
+        })
+
+    # Sort by fail % descending (worst subjects first — most useful for teachers)
+    stats.sort(key=lambda x: x['fail_pct'], reverse=True)
+    report['subject_stats'] = stats
+
+    return report
+
+
+def format_class_report(report: dict) -> str:
+    """
+    Convert a generate_class_report() dict into a plain-text block
+    suitable for appending to a CSV file (mirrors sgbau_fast_api.py output).
+    """
+    dept_name = report.get('dept', '')
+    header    = f'  CLASS REPORT — {dept_name}' if dept_name else '  CLASS REPORT'
+    lines     = ['', '=' * 60, header, '=' * 60]
+
+    total  = report['total_students']
+    passed = report['passed']
+    failed = report['failed']
+    pct    = report['pass_pct']
+
+    if total == 0:
+        lines.append('  No valid results to generate a report.')
+        return '\n'.join(lines)
+
+    lines.extend([
+        '',
+        f'  Total Students : {total}',
+        f'  Passed         : {passed} ({pct:.1f}%)',
+        f'  Failed         : {failed} ({100 - pct:.1f}%)',
+    ])
+
+    top5 = report.get('top5', [])
+    if top5:
+        lines.extend(['', '  --- Top 5 Students (by SGPA) ---'])
+        for s in top5:
+            lines.append(
+                f"  {s['rank']}. {s['name']} (Roll: {s['roll']}) — SGPA: {s['sgpa']}"
+            )
+
+    subj_stats = report.get('subject_stats', [])
+    if subj_stats:
+        lines.extend(['', '  --- Subject-wise Results ---'])
+        for s in subj_stats:
+            lines.append(
+                f"  {s['subject']:>6s} : "
+                f"Passed {s['passed']}/{s['total']} ({s['pass_pct']:.0f}%)  |  "
+                f"Failed {s['failed']}/{s['total']} ({s['fail_pct']:.0f}%)"
+            )
+
+    lines.extend(['', '=' * 60])
+    return '\n'.join(lines)

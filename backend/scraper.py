@@ -6,7 +6,13 @@ All configuration is passed in as function parameters.
 
 import asyncio
 import aiohttp
-from backend.utils import generate_roll_range, parse_result
+import pandas as pd
+from backend.utils import (
+    generate_roll_range,
+    parse_result,
+    get_subject_cols,
+    generate_class_report,
+)
 
 URL_MAIN = "https://sgbau.ucanapply.com/result-details"
 URL_API  = "https://sgbau.ucanapply.com/get-result-details"
@@ -147,16 +153,18 @@ async def scrape_departments(
                 dept_results.append(result)
                 await progress_callback(dept.name, result)   # stream to SSE
 
+            # ── Build DataFrame from this department's results ────────────
+            df_dept    = pd.DataFrame(dept_results)
+            subj_cols  = get_subject_cols(df_dept) if not df_dept.empty else []
+            class_rpt  = generate_class_report(df_dept, subj_cols, dept.name)
+
             summaries.append({
-                "name":    dept.name,
-                "range":   f"{dept.start_roll} → {dept.end_roll}",
-                "results": dept_results,
-                "total":   len([r for r in dept_results if r.get("Status") == "OK"]),
-                "passed":  len([
-                    r for r in dept_results
-                    if r.get("Status") == "OK"
-                    and str(r.get("Result", "")).upper() == "PASS"
-                ]),
+                "name":         dept.name,
+                "range":        f"{dept.start_roll} → {dept.end_roll}",
+                "results":      dept_results,
+                "total":        class_rpt["total_students"],
+                "passed":       class_rpt["passed"],
+                "class_report": class_rpt,          # ← structured dict for frontend
             })
 
         # Allow underlying transports to close gracefully on Windows

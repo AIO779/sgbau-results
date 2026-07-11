@@ -194,11 +194,13 @@ async function startFetch() {
   // Reset UI
   allRows       = [];
   countReceived = 0;
-  document.getElementById("results-body").innerHTML        = "";
-  document.getElementById("summary-body").innerHTML        = "";
-  document.getElementById("results-count-badge").textContent = "0";
+  document.getElementById("results-body").innerHTML          = "";
+  document.getElementById("summary-body").innerHTML          = "";
+  document.getElementById("class-report-container").innerHTML = "";
+  document.getElementById("results-count-badge").textContent  = "0";
   hide("results-card");
   hide("summary-card");
+  hide("class-report-section");
   hide("download-btn");
   resetPills();
 
@@ -263,6 +265,7 @@ function openSSE(jobId) {
       setProgress(`✅ Done — ${countReceived} results fetched`, 100);
       document.getElementById("progress-count").textContent = countReceived;
       renderSummary(msg.summary || []);
+      renderClassReports(msg.summary || []);
       show("download-btn");
       show("summary-card");
       resetFetchBtn();
@@ -372,6 +375,115 @@ function renderSummary(summaries) {
         </div>
       </div>`;
   }).join("");
+}
+
+// ── Class Report rendering ───────────────────────────────────────────────────────────────
+
+function renderClassReports(summaries) {
+  const container = document.getElementById("class-report-container");
+
+  const reports = summaries.filter(s => s.class_report && s.class_report.total_students > 0);
+  if (!reports.length) return;
+
+  container.innerHTML = reports.map(s => {
+    const r       = s.class_report;
+    const failPct = r.total_students > 0 ? (100 - r.pass_pct).toFixed(1) : "0.0";
+
+    // ── Top-5 rows ──────────────────────────────────────────────────────────
+    const rankClass = i => i === 1 ? "gold" : i === 2 ? "silver" : i === 3 ? "bronze" : "";
+    const top5Html  = r.top5.length ? `
+      <p class="report-section-title">🏆 Top 5 Students by SGPA</p>
+      <ul class="report-top5">
+        ${r.top5.map(st => `
+          <li class="report-top5-item">
+            <span class="report-rank ${rankClass(st.rank)}">${st.rank}</span>
+            <span class="report-top5-name">${st.name}</span>
+            <span class="report-top5-roll">${st.roll}</span>
+            <span class="report-top5-sgpa">${st.sgpa.toFixed(2)}</span>
+          </li>`).join("")}
+      </ul>` : "";
+
+    // ── Compute overall subject totals ──────────────────────────────────────
+    const totalSubjStudents = r.subject_stats.reduce((a, b) => a + b.total,  0);
+    const totalSubjPassed   = r.subject_stats.reduce((a, b) => a + b.passed, 0);
+    const totalSubjFailed   = r.subject_stats.reduce((a, b) => a + b.failed, 0);
+    const overallPassPct    = totalSubjStudents > 0
+      ? ((totalSubjPassed / totalSubjStudents) * 100).toFixed(1) : "0.0";
+    const overallFailPct    = totalSubjStudents > 0
+      ? ((totalSubjFailed / totalSubjStudents) * 100).toFixed(1) : "0.0";
+
+    // ── Subject stats table ─────────────────────────────────────────────────
+    const subjHtml = r.subject_stats.length ? `
+      <p class="report-section-title">📚 Subject-wise Results</p>
+      <div class="report-table-wrap">
+        <table class="report-subj-table">
+          <thead>
+            <tr>
+              <th class="col-subj">Subject</th>
+              <th class="col-num">Total</th>
+              <th class="col-num">Passed</th>
+              <th class="col-pct">Pass %</th>
+              <th class="col-num">Failed</th>
+              <th class="col-pct">Fail %</th>
+              <th class="col-bar">Pass Rate</th>
+            </tr>
+          </thead>
+          <tbody>
+            <!-- Overall semester row -->
+            <tr class="subj-overall-row">
+              <td class="col-subj"><strong>Overall Semester</strong></td>
+              <td class="col-num"><strong>${r.total_students}</strong></td>
+              <td class="col-num pass-num"><strong>${r.passed}</strong></td>
+              <td class="col-pct pass-pct"><strong>${r.pass_pct}%</strong></td>
+              <td class="col-num fail-num"><strong>${r.failed}</strong></td>
+              <td class="col-pct fail-pct"><strong>${failPct}%</strong></td>
+              <td class="col-bar">
+                <div class="subj-bar-wrap">
+                  <div class="subj-bar-track">
+                    <div class="subj-bar-pass" style="width:${r.pass_pct}%"></div>
+                  </div>
+                  <span class="bar-label">${r.pass_pct}%</span>
+                </div>
+              </td>
+            </tr>
+            <!-- Per-subject rows -->
+            ${r.subject_stats.map(sub => `
+            <tr>
+              <td class="col-subj"><strong>${sub.subject}</strong></td>
+              <td class="col-num">${sub.total}</td>
+              <td class="col-num pass-num">${sub.passed}</td>
+              <td class="col-pct pass-pct">${sub.pass_pct}%</td>
+              <td class="col-num fail-num">${sub.failed}</td>
+              <td class="col-pct fail-pct">${sub.fail_pct}%</td>
+              <td class="col-bar">
+                <div class="subj-bar-wrap">
+                  <div class="subj-bar-track">
+                    <div class="subj-bar-pass" style="width:${sub.pass_pct}%"></div>
+                  </div>
+                  <span class="bar-label">${sub.pass_pct}%</span>
+                </div>
+              </td>
+            </tr>`).join("")}
+          </tbody>
+        </table>
+      </div>` : "";
+
+    return `
+      <div class="report-card">
+        <div class="report-card-header">
+          <span class="report-dept-name">${r.dept}</span>
+        </div>
+        <div class="report-overview">
+          <span class="report-stat-pill total">👥 ${r.total_students} Students</span>
+          <span class="report-stat-pill passed">✓ ${r.passed} Passed &nbsp;(${r.pass_pct}%)</span>
+          <span class="report-stat-pill failed">✗ ${r.failed} Failed &nbsp;(${failPct}%)</span>
+        </div>
+        ${top5Html}
+        ${subjHtml}
+      </div>`;
+  }).join("");
+
+  show("class-report-section");
 }
 
 // ── CSV download ───────────────────────────────────────────────────────────────

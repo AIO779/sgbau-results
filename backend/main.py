@@ -19,6 +19,7 @@ from sse_starlette.sse import EventSourceResponse
 
 from backend.models import FetchRequest, FetchResponse
 from backend.scraper import scrape_departments
+from backend.utils import format_class_report
 
 app = FastAPI(title="SGBAU Results API", version="1.0.0")
 
@@ -77,6 +78,7 @@ async def fetch_results(req: FetchRequest, background_tasks: BackgroundTasks):
     JOBS[job_id] = {
         "queue":   queue,
         "results": [],
+        "reports": {},          # dept_name -> class_report dict (populated on done)
         "done":    False,
         "error":   None,
     }
@@ -129,6 +131,7 @@ async def progress_stream(job_id: str):
 async def download_csv(job_id: str):
     """
     Return all collected results for a finished job as a downloadable CSV.
+    Includes per-department class report appended after the data rows.
     The client calls this after receiving the 'done' SSE event.
     """
     if job_id not in JOBS:
@@ -142,7 +145,7 @@ async def download_csv(job_id: str):
 
     # ── Columns to always exclude (internal/raw metadata) ─────────────────────
     _EXCLUDE = {
-        "Status", "Error", "Department", "Result", "Roll Number", "PRN",
+        "Status", "Error", "Department", "Roll Number", "PRN",
         "Session", "Message", "Max Marks",
         # Grade-table header names that sometimes bleed into parsed dicts
         "Subject", "Paper", "THEORY", "I.A.", "I.A.(PRAC)", "PRACTICAL",
@@ -150,7 +153,7 @@ async def download_csv(job_id: str):
     }
 
     # ── Fixed columns we always want (in this order) ──────────────────────────
-    FIXED = ["Roll No", "Name", "SGPA", "College"]
+    FIXED = ["Roll No", "Name", "Result", "SGPA", "College"]
 
     # ── Subject columns: abbreviated names never contain spaces ───────────────
     subj_cols = [
@@ -161,11 +164,20 @@ async def download_csv(job_id: str):
     ]
 
     # Keep only columns that actually exist in the dataframe
-    ordered = [c for c in FIXED if c in df.columns] + subj_cols
-    df_clean = df[ordered]
+    ordered   = [c for c in FIXED if c in df.columns] + subj_cols
+    df_clean  = df[ordered]
 
     buf = io.StringIO()
     df_clean.to_csv(buf, index=False)
+
+    # ── Append class report(s) after data rows ─────────────────────────────
+    reports = JOBS[job_id].get("reports", {})
+    if reports:
+        buf.write("\n")   # blank line separator between data and report
+        for dept_name, rpt in reports.items():
+            buf.write(format_class_report(rpt))
+            buf.write("\n")
+
     buf.seek(0)
 
     return StreamingResponse(
@@ -221,7 +233,24 @@ async def run_scrape_job(job_id: str, req: FetchRequest):
             workers=req.workers,
             progress_callback=progress_callback,
         )
-        await queue.put({"type": "done", "summary": summaries})
+
+        # ── Store class reports for the download endpoint (Phase 4) ────────────
+        for s in summaries:
+            if "class_report" in s:
+                job["reports"][s["name"]] = s["class_report"]
+
+        # ── Strip raw results list before sending over SSE (too large) ────────
+        sse_summaries = [
+            {
+                "name":         s["name"],
+                "range":        s["range"],
+                "total":        s["total"],
+                "passed":       s["passed"],
+                "class_report": s.get("class_report", {}),
+            }
+            for s in summaries
+        ]
+        await queue.put({"type": "done", "summary": sse_summaries})
 
     except Exception as exc:
         await queue.put({"type": "error", "message": str(exc)})
