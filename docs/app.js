@@ -510,4 +510,49 @@ function show(id) { document.getElementById(id)?.classList.remove("hidden"); }
 function hide(id) { document.getElementById(id)?.classList.add("hidden"); }
 
 // ── Init ───────────────────────────────────────────────────────────────────────
-window.addEventListener("DOMContentLoaded", () => addDept());
+window.addEventListener("DOMContentLoaded", () => {
+  addDept();
+
+  // Close watch modal on Escape key
+  document.addEventListener("keydown", e => {
+    if (e.key === "Escape") closeWatchModal();
+  });
+});
+
+// ── Phase 11: Watch Modal Functions ───────────────────────────────────────────
+
+function openWatchModal() {
+  document.getElementById("watch-modal-overlay").classList.remove("hidden");
+  // Small delay so the remove-hidden transition fires
+  setTimeout(() => document.getElementById("modal-start-roll").focus(), 50);
+}
+
+function closeWatchModal(event) {
+  // If called from overlay click, only close if click was ON the overlay itself
+  if (event && event.target !== document.getElementById("watch-modal-overlay")) return;
+  document.getElementById("watch-modal-overlay").classList.add("hidden");
+}
+
+function goToWatcher() {
+  const start = document.getElementById("modal-start-roll").value.trim();
+  const end   = document.getElementById("modal-end-roll").value.trim();
+
+  if (!start) {
+    const el = document.getElementById("modal-start-roll");
+    el.style.borderColor = "var(--fail)";
+    setTimeout(() => el.style.borderColor = "", 2000);
+    el.focus();
+    return;
+  }
+  if (!end) {
+    const el = document.getElementById("modal-end-roll");
+    el.style.borderColor = "var(--fail)";
+    setTimeout(() => el.style.borderColor = "", 2000);
+    el.focus();
+    return;
+  }
+
+  window.location.href =
+    `watcher.html?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`;
+}
+

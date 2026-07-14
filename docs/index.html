@@ -145,6 +145,13 @@
       </button>
     </div>
 
+    <!-- ── WATCH TRIGGER ────────────────────────────────────────────────────── -->
+    <div class="watch-link-wrap">
+      <button class="btn-watch-link" id="open-watch-modal-btn" onclick="openWatchModal()">
+        🔔 Watch for Results
+      </button>
+    </div>
+
     <!-- ── PROGRESS ──────────────────────────────────────────────────────────── -->
     <section class="card hidden" id="progress-card">
       <div class="card-header">
@@ -218,6 +225,27 @@
       </div>
       <div id="summary-body" class="summary-grid"></div>
     </section>
+
+    <!-- ── WATCH MODAL ──────────────────────────────────────────────────────── -->
+    <div class="modal-overlay hidden" id="watch-modal-overlay" onclick="closeWatchModal(event)">
+      <div class="modal-box" id="watch-modal-box">
+        <h3>🔔 Watch for Results</h3>
+        <p class="modal-subtitle">Enter the roll number range to monitor</p>
+        <div class="field">
+          <label for="modal-start-roll">Start Roll Number</label>
+          <input id="modal-start-roll" type="text" placeholder="e.g. 25BD310527" />
+        </div>
+        <div class="field">
+          <label for="modal-end-roll">End Roll Number</label>
+          <input id="modal-end-roll" type="text" placeholder="e.g. 25BD310580" />
+        </div>
+        <button class="btn-primary" id="modal-go-btn" onclick="goToWatcher()"
+                style="margin-top:4px">
+          Open Watcher →
+        </button>
+        <button class="btn-text" onclick="closeWatchModal()">Cancel</button>
+      </div>
+    </div>
 
   </main>
 

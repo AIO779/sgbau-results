@@ -43,3 +43,45 @@ class FetchResponse(BaseModel):
     departments: List[str]
     total_rolls: int
     message: str
+
+
+# ── Watcher models (Phase 2) ──────────────────────────────────────────────────
+
+class WatchRequest(BaseModel):
+    dept_name: str          # Human label shown in logs and Telegram, e.g. "CSE"
+    start_roll: str         # First roll for batch fetch when result declared
+    end_roll: str           # Last roll for batch fetch
+    sentinel_roll: str      # The ONE roll probed each cycle
+    interval_minutes: int   # Minutes to sleep between probes, e.g. 45
+    session: str            # SGBAU session code, e.g. "SE23"
+    course_type: str        # "UG" or "PG"
+    result_type: str        # "R" / "B" / "RV" / "EV"
+    sem_code: str           # Semester code, e.g. "SM03"
+    course_cd: str          # Course code from SGBAU, e.g. "C000032"
+
+
+class WatchStartResponse(BaseModel):
+    watcher_id: str         # UUID string
+    message: str            # e.g. "Watcher started. First probe in 45 minutes."
+    sentinel_roll: str
+    interval_minutes: int
+
+
+class PinVerifyRequest(BaseModel):
+    pin: str                # The PIN entered by the admin
+
+
+class PinVerifyResponse(BaseModel):
+    valid: bool             # True if PIN matches WATCHER_PIN env var
+
+
+class WatchCurrentResponse(BaseModel):
+    active: bool                        # False means no state file exists
+    watcher_id: Optional[str] = None
+    dept_name: Optional[str] = None
+    status: Optional[str] = None        # WAITING / FETCHING / DONE / CANCELLED
+    probe_count: Optional[int] = None
+    sentinel_roll: Optional[str] = None
+    interval_minutes: Optional[int] = None
+    last_probe_time: Optional[str] = None   # ISO timestamp
+    next_probe_time: Optional[str] = None   # ISO timestamp

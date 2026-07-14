@@ -806,3 +806,317 @@ tbody tr { animation: fadeRow 0.18s var(--ease); }
 
 .subj-pct-pass { font-size: 11px; font-weight: 600; color: var(--pass); min-width: 36px; text-align: right; }
 .subj-pct-fail { font-size: 11px; font-weight: 600; color: var(--fail); min-width: 36px; }
+
+
+/* ── Watcher: PIN Overlay (Phase 9) ──────────────────────────────────────────── */
+.pin-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(10, 10, 14, 0.85);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.pin-modal {
+  background: var(--surface);
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius-xl);
+  padding: 40px 36px;
+  width: min(380px, 90vw);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  box-shadow: 0 24px 64px rgba(0,0,0,0.6);
+  animation: slideIn 0.25s var(--ease);
+}
+
+.pin-icon { font-size: 2.4rem; line-height: 1; }
+
+.pin-modal h2 {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: -0.02em;
+}
+
+.pin-modal p {
+  font-size: 13px;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.pin-modal input[type=password] {
+  width: 100%;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 11px 14px;
+  font-size: 16px;
+  font-family: inherit;
+  color: var(--text);
+  text-align: center;
+  letter-spacing: 0.2em;
+  outline: none;
+  transition: border-color 0.15s var(--ease), box-shadow 0.15s var(--ease);
+}
+
+.pin-modal input[type=password]:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-glow);
+}
+
+.pin-modal button {
+  width: 100%;
+  background: linear-gradient(135deg, var(--indigo-600), var(--indigo-500));
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-md);
+  padding: 12px 28px;
+  font-size: 14px;
+  font-family: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 4px 20px var(--accent-glow);
+  transition: filter 0.15s var(--ease), transform 0.1s var(--ease);
+}
+
+.pin-modal button:hover  { filter: brightness(1.12); transform: translateY(-1px); }
+.pin-modal button:active { transform: translateY(0); }
+
+.pin-error {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--fail);
+  text-align: center;
+}
+
+/* ── Watcher: Status Banner ───────────────────────────────────────────────────── */
+.watcher-status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 20px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  font-size: 13px;
+}
+
+.status-label {
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-size: 12px;
+}
+
+.status-detail {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-left: auto;
+}
+
+/* Animated pulsing status dot */
+.status-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.status-dot[data-status="WAITING"] {
+  background: #fbbf24;
+  box-shadow: 0 0 0 0 rgba(251,191,36,0.5);
+  animation: pulse-yellow 1.6s infinite;
+}
+
+.status-dot[data-status="FETCHING"] {
+  background: var(--indigo-400);
+  box-shadow: 0 0 0 0 rgba(99,102,241,0.5);
+  animation: pulse-indigo 1.2s infinite;
+}
+
+.status-dot[data-status="DONE"] {
+  background: var(--pass);
+  animation: none;
+}
+
+.status-dot[data-status="CANCELLED"] {
+  background: var(--fail);
+  animation: none;
+}
+
+@keyframes pulse-yellow {
+  0%   { box-shadow: 0 0 0 0   rgba(251,191,36,0.55); }
+  70%  { box-shadow: 0 0 0 8px rgba(251,191,36,0); }
+  100% { box-shadow: 0 0 0 0   rgba(251,191,36,0); }
+}
+
+@keyframes pulse-indigo {
+  0%   { box-shadow: 0 0 0 0   rgba(99,102,241,0.55); }
+  70%  { box-shadow: 0 0 0 8px rgba(99,102,241,0); }
+  100% { box-shadow: 0 0 0 0   rgba(99,102,241,0); }
+}
+
+/* ── Watcher: Activity Log ────────────────────────────────────────────────────── */
+.activity-log {
+  background: #0d1117;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 14px 16px;
+  height: 260px;
+  overflow-y: auto;
+  font-family: 'Menlo', 'Consolas', 'Monaco', monospace;
+  font-size: 12.5px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  scroll-behavior: smooth;
+}
+
+.log-entry {
+  display: flex;
+  gap: 10px;
+  line-height: 1.5;
+  padding: 2px 0;
+}
+
+.log-time {
+  color: #4a4a6a;
+  flex-shrink: 0;
+  font-size: 11px;
+  padding-top: 1px;
+  min-width: 42px;
+}
+
+.log-msg { color: #8b8ba8; }
+
+/* Log entry type colours */
+.log-probe     .log-msg { color: #8b8ba8; }
+.log-found     .log-msg { color: var(--pass); font-weight: 700; }
+.log-fetching  .log-msg { color: var(--indigo-400); }
+.log-result    .log-msg { color: #c0c0d8; }
+.log-done      .log-msg { color: var(--pass); font-weight: 700; }
+.log-cancelled .log-msg { color: var(--fail); font-weight: 600; }
+.log-error     .log-msg { color: var(--fail); }
+.log-emailed   .log-msg { color: #34d399; }
+
+/* ── Watcher: btn-danger (Stop button) ───────────────────────────────────────── */
+.btn-danger {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  background: linear-gradient(135deg, #dc2626, #ef4444);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-md);
+  padding: 14px 28px;
+  font-size: 15px;
+  font-family: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  letter-spacing: -0.01em;
+  box-shadow: 0 4px 24px rgba(239,68,68,0.30);
+  transition: filter 0.15s var(--ease), transform 0.1s var(--ease), box-shadow 0.15s;
+}
+
+.btn-danger:hover  { filter: brightness(1.10); transform: translateY(-1px); box-shadow: 0 6px 30px rgba(239,68,68,0.40); }
+.btn-danger:active { transform: translateY(0); filter: brightness(0.95); }
+.btn-danger:disabled { opacity: 0.50; cursor: not-allowed; transform: none; }
+
+/* Make submit-wrap support two side-by-side buttons */
+.submit-wrap { gap: 12px; }
+
+/* ── Phase 11: Watch Trigger Link ────────────────────────────────────────────── */
+.watch-link-wrap {
+  text-align: center;
+  margin-top: 10px;
+}
+
+.btn-watch-link {
+  background: transparent;
+  border: none;
+  font-size: 13px;
+  font-family: inherit;
+  font-weight: 500;
+  color: var(--text-subtle);
+  cursor: pointer;
+  padding: 4px 8px;
+  transition: color 0.15s var(--ease);
+}
+
+.btn-watch-link:hover {
+  color: var(--text);
+  text-decoration: underline;
+}
+
+/* ── Phase 11: Watch Modal ───────────────────────────────────────────────────── */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(10, 10, 14, 0.7);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  transition: opacity 0.2s var(--ease);
+}
+
+.modal-overlay.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.modal-box {
+  background: var(--surface);
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius-lg);
+  padding: 32px 28px;
+  width: min(340px, 90vw);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  box-shadow: 0 16px 40px rgba(0,0,0,0.5);
+  transform: translateY(0);
+  transition: transform 0.2s var(--ease);
+}
+
+.modal-overlay.hidden .modal-box {
+  transform: translateY(10px);
+}
+
+.modal-box h3 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: -4px;
+}
+
+.modal-subtitle {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+
+.btn-text {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 8px;
+  margin-top: -6px;
+}
+
+.btn-text:hover { color: var(--text); }
+
+
