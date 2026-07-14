@@ -5,8 +5,94 @@ let currentWatcherId = null;   // UUID of the active watcher
 let sseSource        = null;   // The active EventSource object
 let probeCount       = 0;      // Probes shown in log counter
 let resultCount      = 0;      // Student results received during batch fetch
+let totalRolls       = 0;      // Total rolls in current batch (for progress %)
 let wAllRows         = [];     // All result rows (for filter rebuild)
 let wPillFilter      = "all";  // Active pill filter value
+
+// ── Course Catalog (shared with app.js) ────────────────────────────────────────
+// Copied here so watcher.js works standalone without importing app.js.
+const W_COURSES = [
+  { value: "C000058", label: "B.Arch — Bachelor of Architecture CBCS",                          abbr: "B.Arch"    },
+  { value: "C000087", label: "B.COM(Acc&Fin) — B.COM. Accounting & Finance NEP",                abbr: "BCOM-AF"   },
+  { value: "C000266", label: "B.E.(AI&DS) — Artificial Intelligence & Data Sciences NEP",       abbr: "AI&DS"     },
+  { value: "C000045", label: "B.E.(Chem. Engg) — Chemical Engineering NEP",                     abbr: "CHEM"      },
+  { value: "C000032", label: "B.E.(CSE) — Computer Science & Engineering NEP",                  abbr: "CSE"       },
+  { value: "C000317", label: "B.E.(CSE-DS) — Computer Science & Engineering (Data Science) NEP",abbr: "CSE-DS"    },
+  { value: "C000314", label: "BE in IOT — Internet Of Things",                                  abbr: "IOT"       },
+  { value: "C000037", label: "B.E.(ETC) — Electronics & Telecommunication Engg. NEP",           abbr: "EXTC"      },
+  { value: "C000038", label: "B.E.(EC&E) — Electronics Engineering CGS",                        abbr: "ECE"       },
+  { value: "C000043", label: "B.E.(Elec. Pow.) — Electronics & Power NEP",                      abbr: "EP"        },
+  { value: "C000034", label: "B.E.(EE) — Electrical Engineering NEP",                           abbr: "EE"        },
+  { value: "C000033", label: "B.E.(EEE) — Electrical & Electronics Engineering CGS",            abbr: "EEE"       },
+  { value: "C000039", label: "B.E.(IT) — Information Technology NEP",                           abbr: "IT"        },
+  { value: "C000040", label: "B.E.(Instr. Engg) — Instrumentation Engineering CGS",             abbr: "INSTR"     },
+  { value: "C000041", label: "B.E.(ME) — Mechanical Engineering NEP",                           abbr: "MECH"      },
+  { value: "C000042", label: "B.E.(Prod. Engg) — Production Engineering CGS",                   abbr: "PROD"      },
+  { value: "C000031", label: "B.E.(CIVIL ENGG) — Civil Engineering NEP",                        abbr: "CIVIL"     },
+  { value: "C000027", label: "B.E.(Comp.Engg) — Computer Engineering NEP",                      abbr: "COMP"      },
+  { value: "C000030", label: "B.E.(BIOMEDICAL ENGG) — Biomedical Engineering CGS",              abbr: "BME"       },
+  { value: "C000012", label: "BCA — Bachelor of Computer Application",                           abbr: "BCA"       },
+  { value: "C000009", label: "BBA — Bachelor of Business Administration",                        abbr: "BBA"       },
+  { value: "C000001", label: "BA — Bachelor of Arts",                                            abbr: "BA"        },
+  { value: "C000003", label: "BCOM — Bachelor Of Commerce",                                      abbr: "BCOM"      },
+  { value: "C000002", label: "BSC — Bachelor Of Science",                                        abbr: "BSC"       },
+  { value: "C000115", label: "Bpharm — Bachelor of Pharmacy",                                    abbr: "BPHARM"    },
+  { value: "C000204", label: "BED — Bachelor of Education",                                      abbr: "BED"       },
+  { value: "C000348", label: "BSC(DataSci) — Bachelor of Science Data Science & Analytics",     abbr: "BSC-DS"    },
+  { value: "C000347", label: "BSC(CyberSec) — Bachelor of Science Cyber Security",              abbr: "BSC-CS"    },
+  { value: "C000215", label: "LLB3 — Bachelor of Legislative Law 3 Years",                      abbr: "LLB3"      },
+  { value: "C000005", label: "LLB5 — LL.B 5 Years",                                             abbr: "LLB5"      },
+];
+
+const W_PRESETS = {
+  "C000032": { name: "CSE",    prefix: "25BD310" },
+  "C000039": { name: "IT",     prefix: "25BI310" },
+  "C000317": { name: "CSE-DS", prefix: "25LS310" },
+  "C000037": { name: "EXTC",   prefix: "25BG310" },
+  "C000034": { name: "EE",     prefix: "25BF310" },
+  "C000031": { name: "CIVIL",  prefix: "25BC310" },
+  "C000027": { name: "COMP",   prefix: "25BE310" },
+  "C000041": { name: "MECH",   prefix: "25BM310" },
+};
+
+// Populate the course <select> on load
+document.addEventListener("DOMContentLoaded", () => {
+  const sel = document.getElementById("w-course-cd");
+  if (sel) {
+    W_COURSES.forEach(c => {
+      const opt = document.createElement("option");
+      opt.value       = c.value;
+      opt.textContent = c.label;
+      sel.appendChild(opt);
+    });
+  }
+  document.getElementById("pin-input")
+    .addEventListener("keydown", e => { if (e.key === "Enter") verifyPin(); });
+});
+
+// Auto-fill dept name + roll prefix when course is selected
+function wOnCourseChange(selectEl) {
+  const code    = selectEl.value;
+  const course  = W_COURSES.find(c => c.value === code);
+  if (!course) return;
+
+  const deptInput = document.getElementById("w-dept-name");
+  if (!deptInput.value) {
+    deptInput.value = W_PRESETS[code]?.name || course.abbr;
+  }
+
+  const startInput    = document.getElementById("w-start-roll");
+  const endInput      = document.getElementById("w-end-roll");
+  const sentinelInput = document.getElementById("w-sentinel-roll");
+  const prefix        = W_PRESETS[code]?.prefix;
+  if (prefix) {
+    if (!startInput.value)    startInput.value    = prefix;
+    if (!endInput.value)      endInput.value      = prefix;
+    if (!sentinelInput.value) sentinelInput.value = prefix;
+    startInput.focus();
+    startInput.setSelectionRange(startInput.value.length, startInput.value.length);
+  }
+}
 
 // ── 2. Utility Helpers ────────────────────────────────────────────────────────
 function wShow(id) { document.getElementById(id)?.classList.remove("hidden"); }
@@ -69,11 +155,7 @@ async function verifyPin() {
   }
 }
 
-// Enter key → verifyPin (declared inline in HTML too, but also here for safety)
-document.addEventListener("DOMContentLoaded", () => {
-  document.getElementById("pin-input")
-    .addEventListener("keydown", e => { if (e.key === "Enter") verifyPin(); });
-});
+// (Enter key listener is registered in the DOMContentLoaded above)
 
 // ── 4. Page Init ──────────────────────────────────────────────────────────────
 
@@ -150,8 +232,8 @@ async function startWatcher() {
       return;
     }
   }
-  if (isNaN(interval) || interval < 5 || interval > 1440) {
-    alert("Check interval must be between 5 and 1440 minutes.");
+  if (isNaN(interval) || interval < 1 || interval > 1440) {
+    alert("Check interval must be between 1 and 1440 minutes.");
     document.getElementById("w-interval").focus();
     return;
   }
@@ -281,6 +363,14 @@ function handleWatcherEvent(event) {
       break;
 
     case "fetching":
+      // Store total rolls for accurate progress %, then reset progress UI
+      totalRolls  = (typeof data.total_rolls === "number") ? data.total_rolls : 0;
+      resultCount = 0;
+      wAllRows    = [];
+      document.getElementById("w-results-body").innerHTML   = "";
+      document.getElementById("w-results-count-badge").textContent = "0";
+      document.getElementById("w-progress-fill").style.width  = "0%";
+      document.getElementById("w-progress-count").textContent = "0";
       addLogEntry("fetching", data.message);
       wShow("w-progress-card");
       document.getElementById("w-progress-label").textContent = data.message;
@@ -369,6 +459,11 @@ function handleDone(data) {
 
   updateStatusBanner("DONE", "All results fetched and sent!");
   addLogEntry("done", "✅ Done! Results sent via Telegram. Download CSV below.");
+
+  // Snap progress bar to 100%
+  document.getElementById("w-progress-fill").style.width = "100%";
+  document.getElementById("w-progress-label").textContent =
+    `✅ Done — ${resultCount} results fetched`;
 
   wShow("w-download-btn");
   wHide("w-cancel-btn");
@@ -468,15 +563,17 @@ function wRebuildTable() {
 
 function wUpdateProgress(count) {
   document.getElementById("w-progress-count").textContent = count;
-  // Indeterminate progress during batch fetch (we don't know total upfront in all cases)
   const fill = document.getElementById("w-progress-fill");
   if (fill) {
-    // Animate toward 95% asymptotically — will jump to 100% on done
-    const pct = Math.min(95, Math.round((count / Math.max(count, 10)) * 100));
+    // Use real percentage when totalRolls is known; otherwise indeterminate cap at 95%
+    const pct = totalRolls > 0
+      ? Math.min(99, Math.round((count / totalRolls) * 100))
+      : Math.min(95, Math.round((count / Math.max(count + 5, 20)) * 100));
     fill.style.width = `${pct}%`;
   }
+  const ofTotal = totalRolls > 0 ? ` / ${totalRolls}` : "";
   document.getElementById("w-progress-label").textContent =
-    `Fetching results… ${count} received`;
+    `Fetching results… ${count}${ofTotal} received`;
 }
 
 // ── 12. Summary Card ──────────────────────────────────────────────────────────

@@ -129,10 +129,14 @@
           </div>
         </div>
 
-        <!-- Course code -->
-        <div class="field">
-          <label for="w-course-cd">Course Code</label>
-          <input id="w-course-cd" type="text" placeholder="e.g. C000032" />
+        <!-- Course dropdown (same catalog as index.html) -->
+        <div class="field dept-field-course">
+          <label for="w-course-cd">Course</label>
+          <div class="select-wrap">
+            <select id="w-course-cd" onchange="wOnCourseChange(this)">
+              <option value="">— Select course —</option>
+            </select>
+          </div>
         </div>
 
       </div>
@@ -170,7 +174,7 @@
 
         <div class="field">
           <label for="w-interval">Check Every (minutes)</label>
-          <input id="w-interval" type="number" value="45" min="5" max="1440" />
+          <input id="w-interval" type="number" value="45" min="1" max="1440" />
         </div>
 
       </div>
