@@ -33,6 +33,11 @@ def _get_bot_token() -> str:
     token = os.getenv("TELEGRAM_BOT_TOKEN")
     if not token:
         raise RuntimeError("TELEGRAM_BOT_TOKEN is not configured.")
+    # Strip accidental quotes and whitespace
+    token = token.strip(" '\"")
+    # If the user accidentally included the 'bot' prefix, remove it
+    if token.lower().startswith("bot"):
+        token = token[3:]
     return token
 
 
@@ -41,7 +46,7 @@ def _get_chat_id() -> str:
     chat_id = os.getenv("TELEGRAM_CHAT_ID")
     if not chat_id:
         raise RuntimeError("TELEGRAM_CHAT_ID is not configured.")
-    return chat_id
+    return chat_id.strip(" '\"")
 
 
 def _escape_mdv2(text: str) -> str:
