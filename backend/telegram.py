@@ -14,10 +14,9 @@ import io
 import json
 import logging
 import os
+import uuid
 import urllib.parse
 import urllib.request
-from email.mime.base import MIMEBase
-from email.mime.multipart import MIMEMultipart
 
 logger = logging.getLogger(__name__)
 
@@ -95,8 +94,8 @@ def send_document(filename: str, file_bytes: bytes, caption: str) -> bool:
     """
     Send a file (the results CSV) as a Telegram document attachment.
 
-    Builds a multipart/form-data request using Python's email.mime module
-    (same technique browsers use for file uploads).
+    Manually constructs a multipart/form-data request body (same technique
+    used by curl and the requests library) — no email.mime involved.
 
     Returns True on success, False on failure.
     Synchronous — call via run_in_executor() from async code.
@@ -106,44 +105,46 @@ def send_document(filename: str, file_bytes: bytes, caption: str) -> bool:
         chat_id = _get_chat_id()
         url     = _TG_BASE.format(token=token, method="sendDocument")
 
-        # Build multipart/form-data body
-        outer = MIMEMultipart("form-data")
+        # ── Hand-rolled multipart/form-data ─────────────────────────────────
+        # Using a random boundary (same format as curl)
+        boundary = uuid.uuid4().hex
+        CRLF     = b"\r\n"
 
-        def _field(name: str, value: str) -> MIMEBase:
-            part = MIMEBase("text", "plain")
-            part.add_header("Content-Disposition", "form-data", name=name)
-            part.set_payload(value)
-            return part
+        def field_part(name: str, value: str) -> bytes:
+            return (
+                f"--{boundary}".encode() + CRLF
+                + f'Content-Disposition: form-data; name="{name}"'.encode() + CRLF
+                + CRLF
+                + value.encode("utf-8") + CRLF
+            )
 
-        outer.attach(_field("chat_id", chat_id))
-        outer.attach(_field("caption", caption))
+        def file_part(name: str, fname: str, data: bytes) -> bytes:
+            return (
+                f"--{boundary}".encode() + CRLF
+                + f'Content-Disposition: form-data; name="{name}"; filename="{fname}"'.encode() + CRLF
+                + b"Content-Type: application/octet-stream" + CRLF
+                + CRLF
+                + data + CRLF
+            )
 
-        # File part
-        file_part = MIMEBase("application", "octet-stream")
-        file_part.add_header(
-            "Content-Disposition", "form-data",
-            name="document", filename=filename,
+        body = (
+            field_part("chat_id", chat_id)
+            + field_part("caption",  caption)
+            + file_part("document",  filename, file_bytes)
+            + f"--{boundary}--".encode() + CRLF
         )
-        file_part.set_payload(file_bytes)
-        outer.attach(file_part)
-
-        # Extract boundary and raw body from the MIME object
-        import email.policy
-        content_type = "".join(outer["Content-Type"].splitlines())
-        
-        # email.policy.HTTP correctly formats with \r\n without corrupting file bytes
-        raw_body = outer.as_bytes(policy=email.policy.HTTP).split(b"\r\n\r\n", 1)[1]
+        # ────────────────────────────────────────────────────────────────────
 
         req = urllib.request.Request(
             url,
-            data=raw_body,
+            data=body,
             method="POST",
-            headers={"Content-Type": content_type},
+            headers={"Content-Type": f"multipart/form-data; boundary={boundary}"},
         )
         with urllib.request.urlopen(req, timeout=30) as resp:
-            body = json.loads(resp.read())
-            if not body.get("ok"):
-                logger.error("Telegram sendDocument failed: %s", body)
+            result = json.loads(resp.read())
+            if not result.get("ok"):
+                logger.error("Telegram sendDocument failed: %s", result)
                 return False
         return True
 
