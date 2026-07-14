@@ -128,9 +128,11 @@ def send_document(filename: str, file_bytes: bytes, caption: str) -> bool:
         outer.attach(file_part)
 
         # Extract boundary and raw body from the MIME object
-        content_type = outer["Content-Type"]           # multipart/form-data; boundary=...
-        # email.mime uses \n line endings; HTTP expects \r\n
-        raw_body = outer.as_bytes().split(b"\n\n", 1)[1].replace(b"\n", b"\r\n")
+        import email.policy
+        content_type = "".join(outer["Content-Type"].splitlines())
+        
+        # email.policy.HTTP correctly formats with \r\n without corrupting file bytes
+        raw_body = outer.as_bytes(policy=email.policy.HTTP).split(b"\r\n\r\n", 1)[1]
 
         req = urllib.request.Request(
             url,
