@@ -26,9 +26,11 @@ State file schema (see phases_01_02_03.md § 3.3 for full reference):
   }
 """
 
+import csv
 import json
 import logging
 import os
+import tempfile
 
 logger = logging.getLogger(__name__)
 
@@ -128,7 +130,7 @@ import aiohttp                              # noqa: E402
 from datetime import datetime, timedelta    # noqa: E402
 
 
-def build_csv_bytes(results: list, reports: dict) -> bytes:
+def build_csv_bytes(results_or_path, reports: dict) -> bytes:
     """
     Phase 8.2 — Build the results CSV in memory as bytes.
 
@@ -136,19 +138,29 @@ def build_csv_bytes(results: list, reports: dict) -> bytes:
     GET /api/download/{job_id} route so both produce identical output.
 
     Args:
-      results  — flat list of result dicts (one per student)
-      reports  — { dept_name: class_report_dict } from scrape_departments()
+      results_or_path — either a list of result dicts OR a str path to
+                         a .jsonl temp file (Phase 5). Both are supported.
+      reports         — { dept_name: class_report_dict } from scrape_departments()
 
     Returns:
       UTF-8 encoded bytes of the complete CSV (data rows + class report).
     """
-    import pandas as pd                                    # noqa: PLC0415
     from backend.utils import format_class_report          # noqa: PLC0415
+
+    # Phase 5: accept either a file path or an in-memory list
+    if isinstance(results_or_path, str):
+        results = []
+        if os.path.exists(results_or_path):
+            with open(results_or_path, encoding="utf-8") as fh:
+                for line in fh:
+                    line = line.strip()
+                    if line:
+                        results.append(json.loads(line))
+    else:
+        results = results_or_path
 
     if not results:
         return b"No results collected.\n"
-
-    df = pd.DataFrame(results)
 
     # Columns to always exclude (internal metadata)
     _EXCLUDE = {
@@ -157,16 +169,26 @@ def build_csv_bytes(results: list, reports: dict) -> bytes:
         "Subject", "Paper", "THEORY", "I.A.", "I.A.(PRAC)", "PRACTICAL",
         "Abbreviation", "Marks Scored", "Grade Point", "Grade", "Remarks", "Credits",
     }
-    FIXED   = ["Roll No", "Name", "Result", "SGPA", "College"]
+    FIXED     = ["Roll No", "Name", "Result", "SGPA", "College"]
+    fixed_set = set(FIXED)
+
+    # Collect all keys present in results (preserves insertion order)
+    all_keys: dict = {}
+    for row in results:
+        for k in row:
+            if k not in all_keys:
+                all_keys[k] = True
+
     subj_cols = [
-        c for c in df.columns
-        if c not in _EXCLUDE and c not in set(FIXED) and " " not in c
+        c for c in all_keys
+        if c not in _EXCLUDE and c not in fixed_set and " " not in c
     ]
-    ordered  = [c for c in FIXED if c in df.columns] + subj_cols
-    df_clean = df[ordered]
+    ordered = [c for c in FIXED if c in all_keys] + subj_cols
 
     buf = io.StringIO()
-    df_clean.to_csv(buf, index=False)
+    writer = csv.DictWriter(buf, fieldnames=ordered, extrasaction="ignore", lineterminator="\n")
+    writer.writeheader()
+    writer.writerows(results)
 
     if reports:
         buf.write("\n")
@@ -229,10 +251,19 @@ async def run_batch_fetch(watcher_id: str) -> list:
         course_cd=state["course_cd"],
     )
 
-    # Pre-register a JOBS entry so results can be appended in real-time
-    # and the download endpoint can serve partial results even on failure.
-    JOBS[watcher_id] = {"queue": queue, "results": [], "reports": {}, "done": False, "error": None}
-    all_results: list = JOBS[watcher_id]["results"]
+    # Phase 5: create temp file for streaming results to disk
+    tmp = tempfile.NamedTemporaryFile(
+        mode="w", suffix=".jsonl", prefix=f"sgbau_watcher_{watcher_id}_",
+        delete=False, encoding="utf-8",
+    )
+    # Pre-register a JOBS entry so the download endpoint can serve results
+    JOBS[watcher_id] = {
+        "queue":        queue,
+        "results_file": tmp.name,   # Phase 5: file path instead of in-memory list
+        "reports":      {},
+        "done":         False,
+        "error":        None,
+    }
 
     count = 0
     summaries: list = []
@@ -240,7 +271,9 @@ async def run_batch_fetch(watcher_id: str) -> list:
     async def progress_callback(dept: str, result: dict):
         nonlocal count
         count += 1
-        all_results.append({**result, "Department": dept})
+        # Phase 5: write to temp file instead of growing list in memory
+        tmp.write(json.dumps({**result, "Department": dept}) + "\n")
+        tmp.flush()
         await queue.put({
             "type":   "result",
             "dept":   dept,
@@ -252,6 +285,15 @@ async def run_batch_fetch(watcher_id: str) -> list:
             "count":  count,
         })
 
+    # Phase 4: emit retry events to the watcher SSE stream
+    async def retry_callback(roll: str, attempt: int):
+        await queue.put({
+            "type":    "retry",
+            "roll":    roll,
+            "attempt": attempt,
+            "message": f"Server slow, retrying roll {roll} (attempt {attempt})…",
+        })
+
     try:
         summaries = await scrape_departments(
             departments=[dept_req],
@@ -259,8 +301,9 @@ async def run_batch_fetch(watcher_id: str) -> list:
             course_type=state["course_type"],
             result_type=state["result_type"],
             sem_code=state["sem_code"],
-            workers=50,
+            workers=10,             # Phase 4: reduced from 50 — gentler on SGBAU during peak
             progress_callback=progress_callback,
+            retry_callback=retry_callback,           # Phase 4
         )
         # Store class reports into JOBS for CSV download
         for s in summaries:
@@ -273,7 +316,10 @@ async def run_batch_fetch(watcher_id: str) -> list:
             "type":    "error",
             "message": f"Batch fetch failed: {exc}",
         })
-        # Partial results are already in JOBS — Telegram will note this
+        # Partial results are in the temp file — Telegram will note this
+
+    finally:
+        tmp.close()     # flush & close the temp file
 
     JOBS[watcher_id]["done"] = True
     return summaries
@@ -341,16 +387,19 @@ async def run_watcher_loop(watcher_id: str) -> None:
                     if not token:
                         raise RuntimeError("Failed to fetch CSRF token from SGBAU site.")
 
+                    # Phase 3: wrap token in holder so fetch_one can auto-refresh on 419
+                    token_holder: dict = {"token": token, "lock": asyncio.Lock()}
+
                     probe_result = await fetch_one(
-                        http        = http,
-                        token       = token,
-                        roll        = sentinel,
-                        semaphore   = semaphore,
-                        course_cd   = state["course_cd"],
-                        session_val = state["session"],
-                        course_type = state["course_type"],
-                        result_type = state["result_type"],
-                        sem_code    = state["sem_code"],
+                        http         = http,
+                        token_holder = token_holder,
+                        roll         = sentinel,
+                        semaphore    = semaphore,
+                        course_cd    = state["course_cd"],
+                        session_val  = state["session"],
+                        course_type  = state["course_type"],
+                        result_type  = state["result_type"],
+                        sem_code     = state["sem_code"],
                     )
 
                 probe_status = probe_result.get("Status", "")

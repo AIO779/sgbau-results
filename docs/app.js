@@ -1,5 +1,5 @@
 // ── Config ─────────────────────────────────────────────────────────────────────
-const API_URL = "https://sgbau-results.onrender.com";   // ← change to Render URL in Phase 10
+const API_URL = "https://sgbau-results.onrender.com";
 
 // ── State ──────────────────────────────────────────────────────────────────────
 let currentJobId  = null;

@@ -7,16 +7,17 @@ Routes: POST /api/fetch-results, GET /api/progress/{job_id},
 """
 
 import asyncio
+import csv
 import hmac
 import io
 import json
 import os
+import tempfile
 import uuid
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
 from typing import AsyncGenerator
 
-import pandas as pd
 from fastapi import BackgroundTasks, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
@@ -148,11 +149,11 @@ async def fetch_results(req: FetchRequest, background_tasks: BackgroundTasks):
     job_id = str(uuid.uuid4())
     queue: asyncio.Queue = asyncio.Queue()
     JOBS[job_id] = {
-        "queue":   queue,
-        "results": [],
-        "reports": {},          # dept_name -> class_report dict (populated on done)
-        "done":    False,
-        "error":   None,
+        "queue":        queue,
+        "results_file": None,   # Phase 5: path to .jsonl temp file written per-result
+        "reports":      {},     # dept_name -> class_report dict (populated on done)
+        "done":         False,
+        "error":        None,
     }
 
     background_tasks.add_task(run_scrape_job, job_id, req)
@@ -209,48 +210,62 @@ async def download_csv(job_id: str):
     if job_id not in JOBS:
         raise HTTPException(status_code=404, detail="Job not found")
 
-    all_results = JOBS[job_id].get("results", [])
+    results_file = JOBS[job_id].get("results_file")
+    if not results_file or not os.path.exists(results_file):
+        raise HTTPException(status_code=404, detail="No results available yet")
+
+    # ── Read all result rows from the .jsonl temp file ───────────────────────────
+    all_results = []
+    with open(results_file, encoding="utf-8") as fh:
+        for line in fh:
+            line = line.strip()
+            if line:
+                all_results.append(json.loads(line))
+
     if not all_results:
         raise HTTPException(status_code=404, detail="No results available yet")
 
-    df = pd.DataFrame(all_results)
-
     # ── Columns to always exclude (internal/raw metadata) ─────────────────────
     _EXCLUDE = {
-        "Status", "Error", "Department", "Roll Number", "PRN",
+        "Status", "Error", "Roll Number", "PRN",
         "Session", "Message", "Max Marks",
         # Grade-table header names that sometimes bleed into parsed dicts
         "Subject", "Paper", "THEORY", "I.A.", "I.A.(PRAC)", "PRACTICAL",
         "Abbreviation", "Marks Scored", "Grade Point", "Grade", "Remarks", "Credits",
     }
 
-    # ── Fixed columns we always want (in this order) ──────────────────────────
-    FIXED = ["Roll No", "Name", "Result", "SGPA", "College"]
+    # ── Fixed columns we always want (in this order) ────────────────────────
+    FIXED = ["Department", "Roll No", "Name", "Result", "SGPA", "College"]
 
-    # ── Subject columns: abbreviated names never contain spaces ───────────────
+    # ── Collect all keys present in results (preserves insertion order) ─────
+    all_keys: dict = {}
+    for row in all_results:
+        for k in row:
+            if k not in all_keys:
+                all_keys[k] = True
+
+    # ── Subject columns: abbreviated names never contain spaces ──────────────
+    fixed_set = set(FIXED)
     subj_cols = [
-        c for c in df.columns
-        if c not in _EXCLUDE
-        and c not in set(FIXED)
-        and " " not in c
+        c for c in all_keys
+        if c not in _EXCLUDE and c not in fixed_set and " " not in c
     ]
 
-    # Keep only columns that actually exist in the dataframe
-    ordered   = [c for c in FIXED if c in df.columns] + subj_cols
-    df_clean  = df[ordered]
+    # Keep only columns that actually exist across results
+    ordered = [c for c in FIXED if c in all_keys] + subj_cols
 
     buf = io.StringIO()
-    df_clean.to_csv(buf, index=False)
+    writer = csv.DictWriter(buf, fieldnames=ordered, extrasaction="ignore", lineterminator="\n")
+    writer.writeheader()
+    writer.writerows(all_results)
 
-    # ── Append class report(s) after data rows ─────────────────────────────
+    # ── Append class report(s) after data rows ───────────────────────────
     reports = JOBS[job_id].get("reports", {})
     if reports:
         buf.write("\n")   # blank line separator between data and report
         for dept_name, rpt in reports.items():
             buf.write(format_class_report(rpt))
             buf.write("\n")
-
-    buf.seek(0)
 
     return StreamingResponse(
         iter([buf.getvalue()]),
@@ -269,10 +284,21 @@ async def run_scrape_job(job_id: str, req: FetchRequest):
     """
     Runs in FastAPI's background task system (same event loop as the app).
     Drives scrape_departments() and funnels every result into the SSE queue.
+
+    Phase 5: results are streamed to a .jsonl temp file as they arrive
+    instead of being accumulated in JOBS["results"]. This keeps the in-memory
+    footprint flat regardless of batch size.
     """
     job   = JOBS[job_id]
     queue: asyncio.Queue = job["queue"]
     count = 0
+
+    # Phase 5: open temp file for writing results as JSON lines
+    tmp = tempfile.NamedTemporaryFile(
+        mode="w", suffix=".jsonl", prefix=f"sgbau_{job_id}_",
+        delete=False, encoding="utf-8",
+    )
+    job["results_file"] = tmp.name
 
     async def progress_callback(dept_name: str, result: dict):
         nonlocal count
@@ -290,10 +316,20 @@ async def run_scrape_job(job_id: str, req: FetchRequest):
             "count":  count,
         }
 
-        # Persist flat row for CSV download (include dept column)
-        job["results"].append({**result, "Department": dept_name})
+        # Phase 5: write to temp file instead of growing list in memory
+        tmp.write(json.dumps({**result, "Department": dept_name}) + "\n")
+        tmp.flush()
 
         await queue.put(event)
+
+    # Phase 4: emit retry events so the frontend can show "Server slow, retrying…"
+    async def retry_callback(roll: str, attempt: int):
+        await queue.put({
+            "type":    "retry",
+            "roll":    roll,
+            "attempt": attempt,
+            "message": f"Server slow, retrying roll {roll} (attempt {attempt})…",
+        })
 
     try:
         summaries = await scrape_departments(
@@ -304,9 +340,10 @@ async def run_scrape_job(job_id: str, req: FetchRequest):
             sem_code=req.sem_code,
             workers=req.workers,
             progress_callback=progress_callback,
+            retry_callback=retry_callback,       # Phase 4
         )
 
-        # ── Store class reports for the download endpoint (Phase 4) ────────────
+        # ── Store class reports for the download endpoint ─────────────────────
         for s in summaries:
             if "class_report" in s:
                 job["reports"][s["name"]] = s["class_report"]
@@ -328,7 +365,9 @@ async def run_scrape_job(job_id: str, req: FetchRequest):
         await queue.put({"type": "error", "message": str(exc)})
 
     finally:
+        tmp.close()          # flush & close the temp file
         job["done"] = True
+
 
 
 # ── Watcher routes (Phases 5 & 6) ─────────────────────────────────────────────

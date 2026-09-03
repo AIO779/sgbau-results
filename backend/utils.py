@@ -142,18 +142,23 @@ _INFO_FIELDS = {
 }
 
 
-def get_subject_cols(df) -> list:
+def get_subject_cols(results: list) -> list:
     """
-    Return subject-grade column names from a DataFrame.
+    Return subject-grade column names from a list of result dicts.
     Subject columns: not in _INFO_FIELDS, no spaces (they are abbreviations like 'AM', 'DS').
+    Preserves insertion order (first row wins for ordering).
     """
-    import pandas as pd
-    return [c for c in df.columns if c not in _INFO_FIELDS and ' ' not in c]
+    seen = {}
+    for row in results:
+        for k in row:
+            if k not in _INFO_FIELDS and ' ' not in k and k not in seen:
+                seen[k] = True
+    return list(seen.keys())
 
 
-def generate_class_report(df, subj_cols: list, dept_name: str = '') -> dict:
+def generate_class_report(results: list, subj_cols: list, dept_name: str = '') -> dict:
     """
-    Build a structured class-report dict from a results DataFrame.
+    Build a structured class-report dict from a list of result dicts.
 
     Returns
     -------
@@ -180,9 +185,8 @@ def generate_class_report(df, subj_cols: list, dept_name: str = '') -> dict:
         ],
     }
     """
-    import pandas as pd
-
-    valid = df[df['Status'] == 'OK'].copy() if 'Status' in df.columns else df.copy()
+    # Filter to only OK results
+    valid = [r for r in results if r.get('Status') == 'OK'] if results and 'Status' in results[0] else list(results)
     total = len(valid)
 
     report: dict = {
@@ -199,37 +203,41 @@ def generate_class_report(df, subj_cols: list, dept_name: str = '') -> dict:
         return report
 
     # ── Overall pass / fail ───────────────────────────────────────────────────
-    if 'Result' in valid.columns:
-        passed_mask     = valid['Result'].str.upper() == 'PASS'
-        passed          = int(passed_mask.sum())
-        report['passed']   = passed
-        report['failed']   = total - passed
-        report['pass_pct'] = round((passed / total) * 100, 1)
+    passed = sum(1 for r in valid if str(r.get('Result', '')).upper() == 'PASS')
+    report['passed']   = passed
+    report['failed']   = total - passed
+    report['pass_pct'] = round((passed / total) * 100, 1)
 
     # ── Top-5 by SGPA ─────────────────────────────────────────────────────────
-    if 'SGPA' in valid.columns:
-        sgpa_df = valid.copy()
-        sgpa_df['_sgpa_num'] = pd.to_numeric(sgpa_df['SGPA'], errors='coerce')
-        top5 = sgpa_df.dropna(subset=['_sgpa_num']).nlargest(5, '_sgpa_num')
-        for rank, (_, row) in enumerate(top5.iterrows(), 1):
-            report['top5'].append({
-                'rank': rank,
-                'name': row.get('Name', 'Unknown'),
-                'roll': row.get('Roll No', ''),
-                'sgpa': float(row['_sgpa_num']),
-            })
+    def _to_float(val):
+        try:
+            return float(val)
+        except (TypeError, ValueError):
+            return None
+
+    scored = []
+    for r in valid:
+        f = _to_float(r.get('SGPA'))
+        if f is not None:
+            scored.append((f, r))
+    scored.sort(key=lambda x: x[0], reverse=True)
+    for rank, (sgpa_val, row) in enumerate(scored[:5], 1):
+        report['top5'].append({
+            'rank': rank,
+            'name': row.get('Name', 'Unknown'),
+            'roll': row.get('Roll No', ''),
+            'sgpa': sgpa_val,
+        })
 
     # ── Subject-wise pass / fail ──────────────────────────────────────────────
     stats = []
     for col in subj_cols:
-        if col not in valid.columns:
-            continue
-        col_data = valid[col].dropna()
+        col_data = [r[col] for r in valid if r.get(col) is not None and r.get(col) != '']
         tot = len(col_data)
         if tot == 0:
             continue
-        failed_cnt  = int((col_data.str.upper() == 'F').sum())
-        passed_cnt  = tot - failed_cnt
+        failed_cnt = sum(1 for v in col_data if str(v).upper() == 'F')
+        passed_cnt = tot - failed_cnt
         stats.append({
             'subject':  col,
             'total':    tot,

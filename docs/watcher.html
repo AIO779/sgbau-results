@@ -1,301 +1,307 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>SGBAU Result Watcher — Admin Monitor</title>
-  <meta name="description" content="Hidden admin panel to automatically monitor and fetch SGBAU results when declared. PIN-protected." />
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="style.css" />
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SGBAU Result Watcher — Admin Monitor</title>
+    <meta name="description"
+        content="Hidden admin panel to automatically monitor and fetch SGBAU results when declared. PIN-protected." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="style.css" />
 </head>
+
 <body>
 
-  <!-- ── PIN OVERLAY (Section 0) ────────────────────────────────────────────── -->
-  <!-- Full-screen blurred overlay. Hides everything until PIN is verified. -->
-  <div id="pin-overlay" class="pin-overlay">
-    <div class="pin-modal">
-      <span class="pin-icon">🔐</span>
-      <h2>Admin Access</h2>
-      <p>Enter your PIN to access the Result Watcher</p>
-      <input id="pin-input" type="password" placeholder="Enter PIN" autocomplete="current-password"
-             onkeydown="if(event.key==='Enter') verifyPin()" />
-      <button id="pin-submit-btn" onclick="verifyPin()">Unlock</button>
-      <p id="pin-error" class="pin-error hidden">Incorrect PIN. Try again.</p>
-    </div>
-  </div>
-
-  <!-- ── HEADER (Section 1) ─────────────────────────────────────────────────── -->
-  <header class="site-header hidden" id="w-header">
-    <div class="header-inner">
-      <div class="logo">
-        <span class="logo-icon">🎓</span>
-        <div>
-          <h1>SGBAU Result Watcher</h1>
-          <p class="logo-sub">Sant Gadge Baba Amravati University</p>
+    <!-- ── PIN OVERLAY (Section 0) ────────────────────────────────────────────── -->
+    <!-- Full-screen blurred overlay. Hides everything until PIN is verified. -->
+    <div id="pin-overlay" class="pin-overlay">
+        <div class="pin-modal">
+            <span class="pin-icon">🔐</span>
+            <h2>Admin Access</h2>
+            <p>Enter your PIN to access the Result Watcher</p>
+            <input id="pin-input" type="password" placeholder="Enter PIN" autocomplete="current-password"
+                onkeydown="if(event.key==='Enter') verifyPin()" />
+            <button id="pin-submit-btn" onclick="verifyPin()">Unlock</button>
+            <p id="pin-error" class="pin-error hidden">Incorrect PIN. Try again.</p>
         </div>
-      </div>
-      <span class="header-badge">Result Monitor</span>
-    </div>
-  </header>
-
-  <main class="hidden" id="w-main">
-
-    <!-- ── SESSION SETTINGS (Section 2) ───────────────────────────────────────── -->
-    <section class="card" id="w-config-card">
-      <div class="card-header">
-        <span class="card-icon">⚙️</span>
-        <h2>Session Settings</h2>
-      </div>
-      <div class="config-row">
-
-        <!-- Session dropdown -->
-        <div class="field">
-          <label for="w-session">Session</label>
-          <div class="select-wrap">
-            <select id="w-session">
-              <option value="SE08">Summer 2018</option>
-              <option value="SE09">Winter 2018</option>
-              <option value="SE10">Summer 2019</option>
-              <option value="SE11">Winter 2019</option>
-              <option value="SE12">Summer 2020</option>
-              <option value="SE13">Winter 2020</option>
-              <option value="SE14">Summer 2021</option>
-              <option value="SE15">Winter 2021</option>
-              <option value="SE16">Summer 2022</option>
-              <option value="SE17">Winter 2022</option>
-              <option value="SE18">Summer 2023</option>
-              <option value="SE19">Winter 2023</option>
-              <option value="SE20">Summer 2024</option>
-              <option value="SE21">Winter 2024</option>
-              <option value="SE22">Summer 2025</option>
-              <option value="SE23" selected>Winter 2025</option>
-              <option value="SE24">Summer 2026</option>
-              <option value="SE25">Winter 2026</option>
-              <option value="SE26">Summer 2027</option>
-              <option value="SE27">Winter 2027</option>
-              <option value="SE28">Summer 2028</option>
-              <option value="SE29">Winter 2028</option>
-              <option value="SE30">Summer 2029</option>
-              <option value="SE31">Winter 2029</option>
-              <option value="SE32">Summer 2030</option>
-              <option value="SE33">Winter 2030</option>
-              <option value="SE34">Summer 2031</option>
-              <option value="SE35">Winter 2031</option>
-              <option value="SE36">Summer 2032</option>
-              <option value="SE37">Winter 2032</option>
-              <option value="SE38">Summer 2033</option>
-            </select>
-          </div>
-        </div>
-
-        <!-- Semester dropdown -->
-        <div class="field">
-          <label for="w-sem-code">Semester</label>
-          <div class="select-wrap">
-            <select id="w-sem-code">
-              <option value="MN01">Quarterly (3rd Month)</option>
-              <option value="SM01">Sem 1 — First Semester</option>
-              <option value="SM02">Sem 2 — Second Semester</option>
-              <option value="SM03" selected>Sem 3 — Third Semester</option>
-              <option value="SM04">Sem 4 — Fourth Semester</option>
-              <option value="SM05">Sem 5 — Fifth Semester</option>
-              <option value="SM06">Sem 6 — Sixth Semester</option>
-              <option value="SM07">Sem 7 — Seventh Semester</option>
-              <option value="SM08">Sem 8 — Eighth Semester</option>
-              <option value="SM09">Sem 9 — Ninth Semester</option>
-              <option value="SM10">Sem 10 — Tenth Semester</option>
-              <option value="SM17">First Year</option>
-              <option value="SM18">Second Year</option>
-              <option value="SM19">Third Year</option>
-              <option value="SM20">Fourth Year</option>
-              <option value="SM21">Fifth Year</option>
-              <option value="SM22">Course Work</option>
-            </select>
-          </div>
-        </div>
-
-        <!-- Result type -->
-        <div class="field">
-          <label for="w-result-type">Result Type</label>
-          <div class="select-wrap">
-            <select id="w-result-type">
-              <option value="R" selected>Regular</option>
-              <option value="B">Back</option>
-              <option value="RV">Reval</option>
-              <option value="EV">EVS</option>
-            </select>
-          </div>
-        </div>
-
-        <!-- Course dropdown (same catalog as index.html) -->
-        <div class="field dept-field-course">
-          <label for="w-course-cd">Course</label>
-          <div class="select-wrap">
-            <select id="w-course-cd" onchange="wOnCourseChange(this)">
-              <option value="">— Select course —</option>
-            </select>
-          </div>
-        </div>
-
-      </div>
-    </section>
-
-    <!-- ── WATCHER CONFIG (Section 3) ─────────────────────────────────────────── -->
-    <section class="card" id="watcher-config-card">
-      <div class="card-header">
-        <span class="card-icon">🔁</span>
-        <h2>Watcher Configuration</h2>
-      </div>
-      <div class="config-row">
-
-        <div class="field">
-          <label for="w-dept-name">Department Name</label>
-          <input id="w-dept-name" type="text" placeholder="e.g. CSE" />
-        </div>
-
-        <div class="field">
-          <label for="w-start-roll">Start Roll Number</label>
-          <input id="w-start-roll" type="text" placeholder="e.g. 25BD310527" />
-          <!-- auto-filled from URL param ?start= -->
-        </div>
-
-        <div class="field">
-          <label for="w-end-roll">End Roll Number</label>
-          <input id="w-end-roll" type="text" placeholder="e.g. 25BD310580" />
-          <!-- auto-filled from URL param ?end= -->
-        </div>
-
-        <div class="field">
-          <label for="w-sentinel-roll">Sentinel Roll <span style="text-transform:none;font-size:10px">(probe this one)</span></label>
-          <input id="w-sentinel-roll" type="text" placeholder="Defaults to Start Roll" />
-        </div>
-
-        <div class="field">
-          <label for="w-interval">Check Every (minutes)</label>
-          <input id="w-interval" type="number" value="45" min="1" max="1440" />
-        </div>
-
-      </div>
-    </section>
-
-    <!-- ── ACTION BUTTONS (Section 4) ─────────────────────────────────────────── -->
-    <div class="submit-wrap" style="gap: 12px;">
-      <button class="btn-primary" id="w-start-btn" onclick="startWatcher()">
-        <span class="btn-icon">▶</span>
-        <span id="w-start-btn-text">Start Watching</span>
-      </button>
-      <button class="btn-danger hidden" id="w-cancel-btn" onclick="cancelWatcher()">
-        <span class="btn-icon">⬜</span>
-        <span>Stop Watcher</span>
-      </button>
     </div>
 
-    <!-- ── STATUS BANNER (Section 5) ──────────────────────────────────────────── -->
-    <div class="watcher-status hidden" id="watcher-status-banner">
-      <span class="status-dot" id="status-dot" data-status="WAITING"></span>
-      <span id="status-text" class="status-label">WAITING</span>
-      <span class="status-detail" id="status-detail">First probe in 45 minutes</span>
-    </div>
+    <!-- ── HEADER (Section 1) ─────────────────────────────────────────────────── -->
+    <header class="site-header hidden" id="w-header">
+        <div class="header-inner">
+            <div class="logo">
+                <span class="logo-icon">🎓</span>
+                <div>
+                    <h1>SGBAU Result Watcher</h1>
+                    <p class="logo-sub">Sant Gadge Baba Amravati University</p>
+                </div>
+            </div>
+            <span class="header-badge">Result Monitor</span>
+        </div>
+    </header>
 
-    <!-- ── ACTIVITY LOG (Section 6) ───────────────────────────────────────────── -->
-    <section class="card hidden" id="activity-log-card">
-      <div class="card-header">
-        <span class="card-icon">📋</span>
-        <h2>Activity Log</h2>
-        <span class="card-hint" id="probe-counter">0 probes completed</span>
-      </div>
-      <div id="activity-log" class="activity-log">
-        <!-- Log entries injected by watcher.js
+    <main class="hidden" id="w-main">
+
+        <!-- ── SESSION SETTINGS (Section 2) ───────────────────────────────────────── -->
+        <section class="card" id="w-config-card">
+            <div class="card-header">
+                <span class="card-icon">⚙️</span>
+                <h2>Session Settings</h2>
+            </div>
+            <div class="config-row">
+
+                <!-- Session dropdown -->
+                <div class="field">
+                    <label for="w-session">Session</label>
+                    <div class="select-wrap">
+                        <select id="w-session">
+                            <option value="SE08">Summer 2018</option>
+                            <option value="SE09">Winter 2018</option>
+                            <option value="SE10">Summer 2019</option>
+                            <option value="SE11">Winter 2019</option>
+                            <option value="SE12">Summer 2020</option>
+                            <option value="SE13">Winter 2020</option>
+                            <option value="SE14">Summer 2021</option>
+                            <option value="SE15">Winter 2021</option>
+                            <option value="SE16">Summer 2022</option>
+                            <option value="SE17">Winter 2022</option>
+                            <option value="SE18">Summer 2023</option>
+                            <option value="SE19">Winter 2023</option>
+                            <option value="SE20">Summer 2024</option>
+                            <option value="SE21">Winter 2024</option>
+                            <option value="SE22">Summer 2025</option>
+                            <option value="SE23" selected>Winter 2025</option>
+                            <option value="SE24">Summer 2026</option>
+                            <option value="SE25">Winter 2026</option>
+                            <option value="SE26">Summer 2027</option>
+                            <option value="SE27">Winter 2027</option>
+                            <option value="SE28">Summer 2028</option>
+                            <option value="SE29">Winter 2028</option>
+                            <option value="SE30">Summer 2029</option>
+                            <option value="SE31">Winter 2029</option>
+                            <option value="SE32">Summer 2030</option>
+                            <option value="SE33">Winter 2030</option>
+                            <option value="SE34">Summer 2031</option>
+                            <option value="SE35">Winter 2031</option>
+                            <option value="SE36">Summer 2032</option>
+                            <option value="SE37">Winter 2032</option>
+                            <option value="SE38">Summer 2033</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Semester dropdown -->
+                <div class="field">
+                    <label for="w-sem-code">Semester</label>
+                    <div class="select-wrap">
+                        <select id="w-sem-code">
+                            <option value="MN01">Quarterly (3rd Month)</option>
+                            <option value="SM01">Sem 1 — First Semester</option>
+                            <option value="SM02">Sem 2 — Second Semester</option>
+                            <option value="SM03" selected>Sem 3 — Third Semester</option>
+                            <option value="SM04">Sem 4 — Fourth Semester</option>
+                            <option value="SM05">Sem 5 — Fifth Semester</option>
+                            <option value="SM06">Sem 6 — Sixth Semester</option>
+                            <option value="SM07">Sem 7 — Seventh Semester</option>
+                            <option value="SM08">Sem 8 — Eighth Semester</option>
+                            <option value="SM09">Sem 9 — Ninth Semester</option>
+                            <option value="SM10">Sem 10 — Tenth Semester</option>
+                            <option value="SM17">First Year</option>
+                            <option value="SM18">Second Year</option>
+                            <option value="SM19">Third Year</option>
+                            <option value="SM20">Fourth Year</option>
+                            <option value="SM21">Fifth Year</option>
+                            <option value="SM22">Course Work</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Result type -->
+                <div class="field">
+                    <label for="w-result-type">Result Type</label>
+                    <div class="select-wrap">
+                        <select id="w-result-type">
+                            <option value="R" selected>Regular</option>
+                            <option value="B">Back</option>
+                            <option value="RV">Reval</option>
+                            <option value="EV">EVS</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Course dropdown (same catalog as index.html) -->
+                <div class="field dept-field-course">
+                    <label for="w-course-cd">Course</label>
+                    <div class="select-wrap">
+                        <select id="w-course-cd" onchange="wOnCourseChange(this)">
+                            <option value="">— Select course —</option>
+                        </select>
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
+        <!-- ── WATCHER CONFIG (Section 3) ─────────────────────────────────────────── -->
+        <section class="card" id="watcher-config-card">
+            <div class="card-header">
+                <span class="card-icon">🔁</span>
+                <h2>Watcher Configuration</h2>
+            </div>
+            <div class="config-row">
+
+                <div class="field">
+                    <label for="w-dept-name">Department Name</label>
+                    <input id="w-dept-name" type="text" placeholder="e.g. CSE" />
+                </div>
+
+                <div class="field">
+                    <label for="w-start-roll">Start Roll Number</label>
+                    <input id="w-start-roll" type="text" placeholder="e.g. 25BD310527" />
+                    <!-- auto-filled from URL param ?start= -->
+                </div>
+
+                <div class="field">
+                    <label for="w-end-roll">End Roll Number</label>
+                    <input id="w-end-roll" type="text" placeholder="e.g. 25BD310580" />
+                    <!-- auto-filled from URL param ?end= -->
+                </div>
+
+                <div class="field">
+                    <label for="w-sentinel-roll">Sentinel Roll <span style="text-transform:none;font-size:10px">(probe
+                            this one)</span></label>
+                    <input id="w-sentinel-roll" type="text" placeholder="Defaults to Start Roll" />
+                </div>
+
+                <div class="field">
+                    <label for="w-interval">Check Every (minutes)</label>
+                    <input id="w-interval" type="number" value="45" min="1" max="1440" />
+                </div>
+
+            </div>
+        </section>
+
+        <!-- ── ACTION BUTTONS (Section 4) ─────────────────────────────────────────── -->
+        <div class="submit-wrap" style="gap: 12px;">
+            <button class="btn-primary" id="w-start-btn" onclick="startWatcher()">
+                <span class="btn-icon">▶</span>
+                <span id="w-start-btn-text">Start Watching</span>
+            </button>
+            <button class="btn-danger hidden" id="w-cancel-btn" onclick="cancelWatcher()">
+                <span class="btn-icon">⬜</span>
+                <span>Stop Watcher</span>
+            </button>
+        </div>
+
+        <!-- ── STATUS BANNER (Section 5) ──────────────────────────────────────────── -->
+        <div class="watcher-status hidden" id="watcher-status-banner">
+            <span class="status-dot" id="status-dot" data-status="WAITING"></span>
+            <span id="status-text" class="status-label">WAITING</span>
+            <span class="status-detail" id="status-detail">First probe in 45 minutes</span>
+        </div>
+
+        <!-- ── ACTIVITY LOG (Section 6) ───────────────────────────────────────────── -->
+        <section class="card hidden" id="activity-log-card">
+            <div class="card-header">
+                <span class="card-icon">📋</span>
+                <h2>Activity Log</h2>
+                <span class="card-hint" id="probe-counter">0 probes completed</span>
+            </div>
+            <div id="activity-log" class="activity-log">
+                <!-- Log entries injected by watcher.js
              Each entry: <div class="log-entry log-probe">
                            <span class="log-time">20:50</span>
                            <span class="log-msg">Probe #3: Not declared yet...</span>
                          </div> -->
-      </div>
-    </section>
+            </div>
+        </section>
 
-    <!-- ── PROGRESS (Section 7a) ───────────────────────────────────────────────── -->
-    <section class="card hidden" id="w-progress-card">
-      <div class="card-header">
-        <span class="card-icon">⏳</span>
-        <h2>Fetch Progress</h2>
-      </div>
-      <div id="w-progress-label" class="progress-label">Starting…</div>
-      <div class="progress-track">
-        <div class="progress-fill" id="w-progress-fill"></div>
-      </div>
-      <div class="progress-stats">
-        <span id="w-progress-count">0</span> results received
-      </div>
-    </section>
+        <!-- ── PROGRESS (Section 7a) ───────────────────────────────────────────────── -->
+        <section class="card hidden" id="w-progress-card">
+            <div class="card-header">
+                <span class="card-icon">⏳</span>
+                <h2>Fetch Progress</h2>
+            </div>
+            <div id="w-progress-label" class="progress-label">Starting…</div>
+            <div class="progress-track">
+                <div class="progress-fill" id="w-progress-fill"></div>
+            </div>
+            <div class="progress-stats">
+                <span id="w-progress-count">0</span> results received
+            </div>
+        </section>
 
-    <!-- ── CLASS REPORT (Section 7b) ──────────────────────────────────────────── -->
-    <section class="hidden" id="w-class-report-section">
-      <div class="class-report-heading">
-        <span>📋</span>
-        <h2>Class Report</h2>
-      </div>
-      <div id="w-class-report-container"></div>
-    </section>
+        <!-- ── CLASS REPORT (Section 7b) ──────────────────────────────────────────── -->
+        <section class="hidden" id="w-class-report-section">
+            <div class="class-report-heading">
+                <span>📋</span>
+                <h2>Class Report</h2>
+            </div>
+            <div id="w-class-report-container"></div>
+        </section>
 
-    <!-- ── RESULTS TABLE (Section 7c) ─────────────────────────────────────────── -->
-    <section class="card hidden" id="w-results-card">
-      <div class="card-header results-header">
-        <div class="card-header-left">
-          <span class="card-icon">🧑‍🎓</span>
-          <h2>Student Results</h2>
-          <span class="results-count-badge" id="w-results-count-badge">0</span>
-        </div>
-        <button class="btn-download hidden" id="w-download-btn" onclick="downloadWatcherCSV()">
-          <span>⬇</span> Download CSV
-        </button>
-      </div>
+        <!-- ── RESULTS TABLE (Section 7c) ─────────────────────────────────────────── -->
+        <section class="card hidden" id="w-results-card">
+            <div class="card-header results-header">
+                <div class="card-header-left">
+                    <span class="card-icon">🧑‍🎓</span>
+                    <h2>Student Results</h2>
+                    <span class="results-count-badge" id="w-results-count-badge">0</span>
+                </div>
+                <button class="btn-download hidden" id="w-download-btn" onclick="downloadWatcherCSV()">
+                    <span>⬇</span> Download CSV
+                </button>
+            </div>
 
-      <!-- Filter bar -->
-      <div class="filter-bar">
-        <input id="w-filter-input" type="text" placeholder="🔎  Filter by name or roll number…"
-               oninput="filterWatcherTable()" />
-        <div class="filter-pills" id="w-filter-pills">
-          <button class="pill active" data-filter="all"  onclick="setWatcherPill('all',  this)">All</button>
-          <button class="pill pass"   data-filter="pass" onclick="setWatcherPill('pass', this)">PASS</button>
-          <button class="pill fail"   data-filter="fail" onclick="setWatcherPill('fail', this)">FAIL</button>
-          <button class="pill atkt"   data-filter="atkt" onclick="setWatcherPill('atkt', this)">ATKT</button>
-        </div>
-      </div>
+            <!-- Filter bar -->
+            <div class="filter-bar">
+                <input id="w-filter-input" type="text" placeholder="🔎  Filter by name or roll number…"
+                    oninput="filterWatcherTable()" />
+                <div class="filter-pills" id="w-filter-pills">
+                    <button class="pill active" data-filter="all" onclick="setWatcherPill('all',  this)">All</button>
+                    <button class="pill pass" data-filter="pass" onclick="setWatcherPill('pass', this)">PASS</button>
+                    <button class="pill fail" data-filter="fail" onclick="setWatcherPill('fail', this)">FAIL</button>
+                    <button class="pill atkt" data-filter="atkt" onclick="setWatcherPill('atkt', this)">ATKT</button>
+                </div>
+            </div>
 
-      <div id="w-table-wrap">
-        <table id="w-results-table">
-          <thead>
-            <tr>
-              <th>Roll No</th>
-              <th>Name</th>
-              <th>Result</th>
-              <th>SGPA</th>
-              <th>Status</th>
-            </tr>
-          </thead>
-          <tbody id="w-results-body"></tbody>
-        </table>
-      </div>
-    </section>
+            <div id="w-table-wrap">
+                <table id="w-results-table">
+                    <thead>
+                        <tr>
+                            <th>Roll No</th>
+                            <th>Name</th>
+                            <th>Result</th>
+                            <th>SGPA</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="w-results-body"></tbody>
+                </table>
+            </div>
+        </section>
 
-    <!-- ── SUMMARY (Section 7d) ────────────────────────────────────────────────── -->
-    <section class="card hidden" id="w-summary-card">
-      <div class="card-header">
-        <span class="card-icon">📊</span>
-        <h2>Department Summary</h2>
-      </div>
-      <div id="w-summary-body" class="summary-grid"></div>
-    </section>
+        <!-- ── SUMMARY (Section 7d) ────────────────────────────────────────────────── -->
+        <section class="card hidden" id="w-summary-card">
+            <div class="card-header">
+                <span class="card-icon">📊</span>
+                <h2>Department Summary</h2>
+            </div>
+            <div id="w-summary-body" class="summary-grid"></div>
+        </section>
 
-  </main>
+    </main>
 
-  <!-- ── FOOTER (Section 8) ─────────────────────────────────────────────────── -->
-  <footer class="site-footer hidden" id="w-footer">
-    <p>SGBAU Result Watcher &bull; Data sourced from <a href="https://sgbau.ucanapply.com" target="_blank" rel="noopener">sgbau.ucanapply.com</a></p>
-  </footer>
+    <!-- ── FOOTER (Section 8) ─────────────────────────────────────────────────── -->
+    <footer class="site-footer hidden" id="w-footer">
+        <p>SGBAU Result Watcher &bull; Data sourced from <a href="https://sgbau.ucanapply.com" target="_blank"
+                rel="noopener">sgbau.ucanapply.com</a></p>
+    </footer>
 
-  <script src="watcher.js"></script>
+    <script src="watcher.js"></script>
 </body>
+
 </html>

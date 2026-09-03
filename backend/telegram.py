@@ -78,7 +78,7 @@ def send_message(text: str) -> bool:
         }).encode("utf-8")
 
         req  = urllib.request.Request(url, data=payload, method="POST")
-        with urllib.request.urlopen(req, timeout=20) as resp:
+        with urllib.request.urlopen(req, timeout=30) as resp:
             body = json.loads(resp.read())
             if not body.get("ok"):
                 logger.error("Telegram sendMessage failed: %s", body)
@@ -141,7 +141,7 @@ def send_document(filename: str, file_bytes: bytes, caption: str) -> bool:
             method="POST",
             headers={"Content-Type": f"multipart/form-data; boundary={boundary}"},
         )
-        with urllib.request.urlopen(req, timeout=30) as resp:
+        with urllib.request.urlopen(req, timeout=60) as resp:
             result = json.loads(resp.read())
             if not result.get("ok"):
                 logger.error("Telegram sendDocument failed: %s", result)
@@ -248,13 +248,14 @@ async def send_results_notification(summaries: list, state: dict) -> str:
         from backend.watcher import build_csv_bytes  # noqa: PLC0415
         from backend.main import JOBS                # noqa: PLC0415
 
-        # Collect all_results from JOBS (populated by run_batch_fetch)
-        watcher_id  = state.get("watcher_id", "")
-        job         = JOBS.get(watcher_id, {})
-        all_results = job.get("results", [])
-        reports     = job.get("reports", {})
+        # Phase 5: prefer the temp file path; fall back to empty list
+        watcher_id   = state.get("watcher_id", "")
+        job          = JOBS.get(watcher_id, {})
+        results_file = job.get("results_file")          # str path or None
+        results_src  = results_file if results_file else job.get("results", [])
+        reports      = job.get("reports", {})
 
-        csv_bytes = build_csv_bytes(all_results, reports)
+        csv_bytes = build_csv_bytes(results_src, reports)
 
         dept      = state.get("dept_name", "dept")
         session   = state.get("session", "")

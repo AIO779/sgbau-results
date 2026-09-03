@@ -3,6 +3,6 @@ uvicorn[standard]
 aiohttp
 beautifulsoup4
 lxml
-pandas
 python-multipart
 sse-starlette
+tenacity

@@ -15,7 +15,7 @@ class FetchRequest(BaseModel):
     course_type: str = "UG"
     result_type: str = "R"
     sem_code: str = "SM03"
-    workers: int = 50
+    workers: int = 15
 
 
 class StudentResult(BaseModel):
