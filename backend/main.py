@@ -21,6 +21,7 @@ from typing import AsyncGenerator
 from fastapi import BackgroundTasks, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
+from fastapi.staticfiles import StaticFiles
 from sse_starlette.sse import EventSourceResponse
 
 from backend.models import (
@@ -533,3 +534,8 @@ async def watch_cancel(watcher_id: str):
         {"type": "cancelled", "message": "Watcher stopped by admin."}
     )
     return {"message": "Cancel signal sent."}
+
+
+# ── Static frontend (must be mounted LAST — catches everything not matched above) ──
+# Serves docs/index.html at / so the full app runs from sgbau-results.onrender.com
+app.mount("/", StaticFiles(directory="docs", html=True), name="static")

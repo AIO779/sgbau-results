@@ -1,5 +1,5 @@
 // ── Config ─────────────────────────────────────────────────────────────────────
-const API_URL = "https://sgbau-results.onrender.com";
+const API_URL = "";  // empty = same server (works on Render AND localhost)
 
 // ── State ──────────────────────────────────────────────────────────────────────
 let currentJobId  = null;
